@@ -1,18 +1,20 @@
+#![doc = include_str!("../README.md")]
+
 use bytes::BytesMut;
 use std::cell::Cell;
 
 mod local_buf {
-    use super::*;
+    use super::{BytesMut, Cell};
 
     thread_local! {
         static POOL: Cell<Option<BytesMut>> = const { Cell::new(None) };
     }
 
-    pub(super) fn clear_buffer() -> Option<BytesMut> {
-        POOL.with(|cell| cell.take())
+    pub fn clear_buffer() -> Option<BytesMut> {
+        POOL.with(Cell::take)
     }
 
-    pub(super) fn take_buffer(capacity: usize) -> BytesMut {
+    pub fn take_buffer(capacity: usize) -> BytesMut {
         POOL.with(|cell| {
             if let Some(mut buf) = cell.take() {
                 if buf.capacity() >= capacity {
@@ -27,14 +29,14 @@ mod local_buf {
         })
     }
 
-    pub(super) fn return_buffer(buf: BytesMut) {
+    pub fn return_buffer(buf: BytesMut) {
         POOL.with(|cell| {
             let mut slot = cell.take();
-            if slot.as_ref().map(|b| b.capacity()).unwrap_or(0) < buf.capacity() {
+            if slot.as_ref().map_or(0, BytesMut::capacity) < buf.capacity() {
                 slot = Some(buf);
             }
             cell.set(slot);
-        })
+        });
     }
 }
 
@@ -44,21 +46,26 @@ pub struct LocalBuf {
 }
 
 impl LocalBuf {
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         let buf = local_buf::take_buffer(capacity);
         Self { inner: Some(buf) }
     }
 
-    pub fn from_bytes(buf: BytesMut) -> Self {
+    #[must_use]
+    pub const fn from_bytes(buf: BytesMut) -> Self {
         Self { inner: Some(buf) }
     }
 
     /// 调用 `into_bytes` 后，你需要调用 `from_bytes` 手动放回缓冲区，否则缓冲区就会被正常释放，无法复用
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn into_bytes(mut self) -> BytesMut {
         self.inner.take().expect("LocalBuf 已被意外消费")
     }
 
     /// 清理当前线程的缓冲区
+    #[allow(clippy::must_use_candidate)]
     pub fn clear_buffer() -> Option<BytesMut> {
         local_buf::clear_buffer()
     }

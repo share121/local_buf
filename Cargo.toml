@@ -1,7 +1,15 @@
 [package]
 name = "local_buf"
+description = "local_buf 是一个支持多线程异步的线程缓冲区"
 version = "0.1.0"
 edition = "2021"
+authors = ["share121 <me@s121.top>"]
+license = "MIT"
+repository = "https://github.com/share121/local_buf"
+categories = ["threads"]
+keywords = ["buffer", "threads"]
+readme = "README.md"
+homepage = "https://github.com/share121/local_buf"
 
 [dependencies]
 bytes = "1.0"
@@ -9,3 +17,9 @@ tracing = { version = "0.1", optional = true }
 
 [features]
 tracing = ["dep:tracing"]
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }

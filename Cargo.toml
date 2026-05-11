@@ -1,0 +1,11 @@
+[package]
+name = "local_buf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytes = "1.0"
+tracing = { version = "0.1", optional = true }
+
+[features]
+tracing = ["dep:tracing"]

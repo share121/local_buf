@@ -15,8 +15,18 @@ homepage = "https://github.com/share121/local_buf"
 bytes = "1.0"
 tracing = { version = "0.1", optional = true }
 
+[dev-dependencies]
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "macros",
+    "sync",
+    "time",
+] }
+rand = "0.8"
+
 [features]
 tracing = ["dep:tracing"]
+stats = []
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }

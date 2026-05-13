@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(test)]
+mod tests;
+
 use bytes::BytesMut;
 use std::cell::Cell;
 
@@ -10,6 +13,15 @@ mod local_buf {
         static POOL: Cell<Option<BytesMut>> = const { Cell::new(None) };
     }
 
+    #[cfg(feature = "stats")]
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[cfg(feature = "stats")]
+    static ALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    #[cfg(feature = "stats")]
+    static HIT_COUNT: AtomicUsize = AtomicUsize::new(0);
+
     pub fn clear_buffer() -> Option<BytesMut> {
         POOL.with(Cell::take)
     }
@@ -19,10 +31,14 @@ mod local_buf {
             if let Some(mut buf) = cell.take() {
                 if buf.capacity() >= capacity {
                     buf.clear();
+                    #[cfg(feature = "stats")]
+                    HIT_COUNT.fetch_add(1, Ordering::Relaxed);
                     return buf;
                 }
                 cell.set(Some(buf));
             }
+            #[cfg(feature = "stats")]
+            ALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
             #[cfg(feature = "tracing")]
             tracing::debug!("current thread LocalBuf is None, allocate {capacity}B");
             BytesMut::with_capacity(capacity)
@@ -37,6 +53,20 @@ mod local_buf {
             }
             cell.set(slot);
         });
+    }
+
+    #[cfg(feature = "stats")]
+    pub fn stats() -> (usize, usize) {
+        (
+            ALLOC_COUNT.load(Ordering::Relaxed),
+            HIT_COUNT.load(Ordering::Relaxed),
+        )
+    }
+
+    #[cfg(feature = "stats")]
+    pub fn reset_stats() {
+        ALLOC_COUNT.store(0, Ordering::Relaxed);
+        HIT_COUNT.store(0, Ordering::Relaxed);
     }
 }
 
@@ -68,6 +98,19 @@ impl LocalBuf {
     #[allow(clippy::must_use_candidate)]
     pub fn clear_buffer() -> Option<BytesMut> {
         local_buf::clear_buffer()
+    }
+
+    /// 返回全局分配统计：`(分配次数, 缓存命中次数)`
+    #[cfg(feature = "stats")]
+    #[must_use]
+    pub fn stats() -> (usize, usize) {
+        local_buf::stats()
+    }
+
+    /// 重置全局分配统计
+    #[cfg(feature = "stats")]
+    pub fn reset_stats() {
+        local_buf::reset_stats();
     }
 }
 
